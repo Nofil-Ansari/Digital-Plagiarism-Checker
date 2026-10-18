@@ -6,15 +6,15 @@ updated: 2026-10-18
 
 # Roadmap
 
-> **Current Phase:** Phase 1 - Advanced GUI Features & File Integration
-> **Status:** Planning
+> **Current Phase:** All Phases Complete
+> **Status:** ✅ Complete
 
 ## Must-Haves (from SPEC)
 - [x] Dual-Mode Desktop GUI (Dear ImGui + OpenGL3)
 - [x] Strategy-based Pattern Searching (Naive, KMP, Rabin-Karp)
 - [x] Plagiarism Metrics (Jaccard + N-Gram Overlap)
-- [ ] Native OS File Open Dialogs
-- [ ] Multi-Document Pairwise Comparison Matrix
+- [x] Native OS File Open Dialogs
+- [x] Multi-Document Pairwise Comparison Matrix
 
 ---
 
@@ -31,13 +31,13 @@ updated: 2026-10-18
 ---
 
 ### Phase 2: Multi-Document Matrix Comparison
-**Status:** 🔄 In Progress
+**Status:** ✅ Complete
 **Objective:** Add a new tab allowing users to add/select multiple documents and compute an $N \times N$ similarity matrix.
 **Depends on:** Phase 1
 
 **Plans:**
-- [ ] Plan 2.1: Multi-Document Matrix Domain Logic & Data Structures (PlagiarismCore.hpp)
-- [ ] Plan 2.2: Multi-Document Matrix GUI Tab & Heatmap Table (gui_main.cpp)
+- [x] Plan 2.1: Multi-Document Matrix Domain Logic & Data Structures (PlagiarismCore.hpp)
+- [x] Plan 2.2: Multi-Document Matrix GUI Tab & Heatmap Table (gui_main.cpp)
 
 ---
 
@@ -46,4 +46,4 @@ updated: 2026-10-18
 | Phase | Status | Plans | Complete |
 |---|---|---|---|
 | 1 | ✅ Complete | 1/1 | 100% |
-| 2 | 🔄 In Progress | 0/2 | 0% |
+| 2 | ✅ Complete | 2/2 | 100% |
