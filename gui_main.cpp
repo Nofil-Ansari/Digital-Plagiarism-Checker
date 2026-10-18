@@ -138,6 +138,15 @@ int main() {
     std::string searchStatusMsg = "Load a file and search a pattern.";
     std::string loadedSearchDocContent;
 
+    // State for Tab 3: Corpus Matrix Comparison
+    std::vector<TextDocument> corpusDocs;
+    std::vector<std::string> corpusPaths;
+    SimilarityMatrix corpusMatrix;
+    bool matrixComputed = false;
+    bool showNgramMatrix = false;   // false = Jaccard, true = N-gram
+    int corpusNgramSize = 3;
+    std::string corpusStatusMsg = "Add documents to the corpus, then click 'Calculate Matrix'.";
+
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
@@ -439,6 +448,182 @@ int main() {
                         ImGui::TextWrapped("%s", posStr.c_str());
                     }
                     ImGui::EndChild();
+                }
+
+                ImGui::EndTabItem();
+            }
+
+            // TAB 3: Corpus Similarity Matrix
+            if (ImGui::BeginTabItem("Corpus Matrix Comparison")) {
+                ImGui::Spacing();
+                ImGui::Text("Add multiple documents and compute an N x N pairwise similarity matrix.");
+                ImGui::Spacing();
+
+                // ── Add Document Controls ──
+                if (ImGui::Button("Add Document (Browse)...", ImVec2(200, 28))) {
+                    std::string picked = OpenFileDialog();
+                    if (!picked.empty()) {
+                        try {
+                            TextDocument doc(picked);
+                            corpusDocs.push_back(std::move(doc));
+                            corpusPaths.push_back(picked);
+                            matrixComputed = false;
+                            corpusStatusMsg = "Added: " + pathBasename(picked) + "  (" + std::to_string(corpusDocs.size()) + " docs total)";
+                        } catch (const std::exception &e) {
+                            corpusStatusMsg = std::string("Error loading file: ") + e.what();
+                        }
+                    }
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Load Default Corpus", ImVec2(180, 28))) {
+                    corpusDocs.clear();
+                    corpusPaths.clear();
+                    matrixComputed = false;
+                    const char *defaults[] = { "file1.txt", "file2.txt" };
+                    for (auto &f : defaults) {
+                        try {
+                            TextDocument doc(f);
+                            corpusDocs.push_back(std::move(doc));
+                            corpusPaths.push_back(f);
+                        } catch (const std::exception &e) {
+                            corpusStatusMsg = std::string("Error loading ") + f + ": " + e.what();
+                        }
+                    }
+                    if (!corpusDocs.empty())
+                        corpusStatusMsg = "Default corpus loaded (" + std::to_string(corpusDocs.size()) + " docs).";
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Clear All", ImVec2(100, 28))) {
+                    corpusDocs.clear();
+                    corpusPaths.clear();
+                    matrixComputed = false;
+                    corpusStatusMsg = "Corpus cleared.";
+                }
+
+                ImGui::Spacing();
+
+                // ── Document List ──
+                if (!corpusPaths.empty()) {
+                    ImGui::Text("Loaded Documents (%zu):", corpusPaths.size());
+                    ImGui::BeginChild("CorpusDocList", ImVec2(0, std::min(120.0f, static_cast<float>(corpusPaths.size()) * 26.0f + 10.0f)), true);
+                    int removeIdx = -1;
+                    for (int i = 0; i < static_cast<int>(corpusPaths.size()); ++i) {
+                        ImGui::PushID(i);
+                        if (ImGui::SmallButton("X")) {
+                            removeIdx = i;
+                        }
+                        ImGui::SameLine();
+                        ImGui::BulletText("[%d] %s  (%zu words)", i + 1, pathBasename(corpusPaths[static_cast<size_t>(i)]).c_str(), corpusDocs[static_cast<size_t>(i)].wordCount());
+                        ImGui::PopID();
+                    }
+                    ImGui::EndChild();
+                    if (removeIdx >= 0) {
+                        corpusDocs.erase(corpusDocs.begin() + removeIdx);
+                        corpusPaths.erase(corpusPaths.begin() + removeIdx);
+                        matrixComputed = false;
+                        corpusStatusMsg = "Document removed. " + std::to_string(corpusDocs.size()) + " docs remaining.";
+                    }
+                }
+
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                // ── Controls ──
+                ImGui::SliderInt("N-Gram Size##Corpus", &corpusNgramSize, 1, 10);
+                ImGui::SameLine();
+                if (ImGui::Button("Calculate Matrix", ImVec2(160, 28))) {
+                    if (corpusDocs.size() < 2) {
+                        corpusStatusMsg = "Need at least 2 documents to compute a matrix.";
+                    } else {
+                        auto start = std::chrono::high_resolution_clock::now();
+                        corpusMatrix = CorpusComparer::compareCorpus(corpusDocs, static_cast<size_t>(corpusNgramSize));
+                        auto end = std::chrono::high_resolution_clock::now();
+                        double ms = std::chrono::duration<double, std::milli>(end - start).count();
+                        matrixComputed = true;
+
+                        std::ostringstream ss;
+                        ss << "Matrix computed for " << corpusDocs.size() << " documents in "
+                           << std::fixed << std::setprecision(2) << ms << " ms.";
+                        corpusStatusMsg = ss.str();
+                    }
+                }
+
+                ImGui::Spacing();
+                ImGui::TextDisabled("%s", corpusStatusMsg.c_str());
+                ImGui::Spacing();
+
+                // ── Matrix Display ──
+                if (matrixComputed) {
+                    ImGui::Checkbox("Show N-gram Matrix", &showNgramMatrix);
+                    ImGui::SameLine();
+                    ImGui::TextDisabled("(%s)", showNgramMatrix ? "N-gram sequence overlap" : "Jaccard token overlap");
+                    ImGui::Spacing();
+
+                    const auto &matrix = showNgramMatrix ? corpusMatrix.ngramMatrix : corpusMatrix.jaccardMatrix;
+                    size_t n = corpusMatrix.documentNames.size();
+
+                    // Heatmap color helper
+                    auto cellColor = [](double val) -> ImVec4 {
+                        if (val > 50.0) return ImVec4(0.95f, 0.30f, 0.30f, 1.0f);  // Red
+                        if (val > 20.0) return ImVec4(0.95f, 0.75f, 0.25f, 1.0f);  // Yellow
+                        return ImVec4(0.30f, 0.85f, 0.45f, 1.0f);                   // Green
+                    };
+                    auto cellBgColor = [](double val) -> ImU32 {
+                        if (val > 50.0) return IM_COL32(180, 50, 50, 80);
+                        if (val > 20.0) return IM_COL32(180, 140, 30, 60);
+                        return IM_COL32(50, 160, 70, 50);
+                    };
+
+                    ImGuiTableFlags tableFlags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+                                                 ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY;
+                    float tableHeight = std::min(400.0f, static_cast<float>(n + 1) * 30.0f + 30.0f);
+
+                    if (ImGui::BeginTable("SimilarityMatrix", static_cast<int>(n) + 1, tableFlags, ImVec2(0, tableHeight))) {
+                        // Header row
+                        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+                        for (size_t c = 0; c < n; ++c) {
+                            ImGui::TableSetupColumn(corpusMatrix.documentNames[c].c_str(), ImGuiTableColumnFlags_WidthFixed, 100.0f);
+                        }
+                        ImGui::TableHeadersRow();
+
+                        // Data rows
+                        for (size_t r = 0; r < n; ++r) {
+                            ImGui::TableNextRow();
+                            ImGui::TableSetColumnIndex(0);
+                            ImGui::TextUnformatted(corpusMatrix.documentNames[r].c_str());
+
+                            for (size_t c = 0; c < n; ++c) {
+                                ImGui::TableSetColumnIndex(static_cast<int>(c) + 1);
+                                double val = matrix[r][c];
+                                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, cellBgColor(val));
+                                ImGui::TextColored(cellColor(val), "%.1f%%", val);
+
+                                // Hover tooltip
+                                if (ImGui::IsItemHovered()) {
+                                    ImGui::BeginTooltip();
+                                    ImGui::Text("%s vs %s", corpusMatrix.documentNames[r].c_str(), corpusMatrix.documentNames[c].c_str());
+                                    ImGui::Separator();
+                                    ImGui::Text("Jaccard: %.2f%%", corpusMatrix.jaccardMatrix[r][c]);
+                                    ImGui::Text("%d-gram:  %.2f%%", corpusNgramSize, corpusMatrix.ngramMatrix[r][c]);
+                                    if (val > 50.0) ImGui::TextColored(ImVec4(1, 0.3f, 0.3f, 1), "HIGH SIMILARITY");
+                                    else if (val > 20.0) ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "MODERATE SIMILARITY");
+                                    else ImGui::TextColored(ImVec4(0.3f, 0.9f, 0.4f, 1), "LOW SIMILARITY");
+                                    ImGui::EndTooltip();
+                                }
+                            }
+                        }
+                        ImGui::EndTable();
+                    }
+
+                    // Legend
+                    ImGui::Spacing();
+                    ImGui::TextColored(ImVec4(0.30f, 0.85f, 0.45f, 1.0f), "GREEN"); ImGui::SameLine();
+                    ImGui::TextDisabled("< 20%%"); ImGui::SameLine();
+                    ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.25f, 1.0f), "  YELLOW"); ImGui::SameLine();
+                    ImGui::TextDisabled("20-50%%"); ImGui::SameLine();
+                    ImGui::TextColored(ImVec4(0.95f, 0.30f, 0.30f, 1.0f), "  RED"); ImGui::SameLine();
+                    ImGui::TextDisabled("> 50%%");
                 }
 
                 ImGui::EndTabItem();
