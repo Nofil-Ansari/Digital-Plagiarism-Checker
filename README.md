@@ -1,10 +1,12 @@
-# Digital Plagiarism Checker & String Search Workbench
+# StringCraft
+
+> A High-Performance C++ String Search & Document Similarity Workbench (KMP, Rabin-Karp, Jaccard, N-Grams)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![C++ Standard](https://img.shields.io/badge/C%2B%2B-17%2F20-blue.svg)](https://isocpp.org/)
 [![GUI](https://img.shields.io/badge/GUI-Dear%20ImGui-orange.svg)](https://github.com/ocornut/imgui)
 
-A high-performance C++ workbench for digital plagiarism detection and pattern search. The engine provides exact pattern-matching implementations (**Naive**, **Knuth-Morris-Pratt**, and **Rabin-Karp**) along with document similarity measures (**Jaccard Token Similarity** and **$N$-gram overlap analysis**), accessible through both a Command-Line Interface (CLI) and an interactive **Dear ImGui** Desktop graphical interface.
+**StringCraft** is a high-performance C++ workbench for exact pattern searching and document similarity analysis. The engine provides hardware-efficient string searching algorithms (**Naive**, **Knuth-Morris-Pratt**, and **Rabin-Karp**) alongside comprehensive similarity metrics (**Jaccard Token Similarity**, **$N$-gram sequence overlap**, and **$N \times N$ multi-document corpus matrices**), accessible through both a Command-Line Interface (CLI) and an interactive **Dear ImGui** Desktop graphical interface.
 
 ---
 
